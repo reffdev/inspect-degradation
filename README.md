@@ -2,9 +2,11 @@
 
 Within-run degradation analysis for AI agents, built as an [Inspect AI](https://inspect.aisi.org.uk/) extension.
 
-Does the agent get worse as it works longer? This package provides a statistical pipeline to measure it: per-step LLM grading with a structured rubric, grader validation against human labels, noise correction, and a full analysis battery. Instead of assuming degradation exists (or doesn't), you can measure it on your own traces.
+Does the agent get worse as it works longer? Agent benchmarks measure final outcomes -- did the task succeed -- but not what happens *during* a task. An agent that makes one early mistake and flawlessly executes the wrong plan for 20 steps looks identical to one that independently fails every step. These are different failure modes, and no existing tooling distinguishes them.
 
-For a study that used this tool across 15 configurations and found no robust degradation, see [inspect-degradation-study](https://github.com/reffdev/inspect-degradation-study).
+This package measures each step of an agent trace along structured dimensions, validates the grader against human labels, corrects downstream statistics for grader noise, and decomposes degradation from confounds (task complexity, phase composition, cascading errors, model identity). The pipeline is designed around a specific lesson: naive step-level regressions produce convincing artifacts. The [companion study](https://github.com/reffdev/inspect-degradation-study) found statistically significant degradation that turned out to be entirely explained by agents shifting from exploration to action over the course of a task.
+
+For full results across 15 configurations (8+ models, 4 scaffoldings, ~24,000 graded steps), see [inspect-degradation-study](https://github.com/reffdev/inspect-degradation-study).
 
 ## How it works
 
@@ -180,6 +182,18 @@ scripts/
   power_analysis.py        # Monte Carlo power table
 ```
 
+## Related work
+
+**Agent benchmarks** ([SWE-bench](https://www.swebench.com/), [GAIA](https://huggingface.co/gaia-benchmark), [WebArena](https://webarena.dev/)) measure final task outcomes. They answer "did the agent succeed?" but not "did the agent get worse over time?" or "why did it fail at step 15?" This tool operates on the within-run trajectory that those benchmarks discard.
+
+**LLM-as-judge frameworks** ([MT-Bench](https://arxiv.org/abs/2306.05685), [AlpacaEval](https://github.com/tatsu-lab/alpaca_eval), [Chatbot Arena](https://arena.lmsys.org/)) evaluate single responses or conversations. They don't handle multi-step agent traces where each step depends on prior context, and they don't correct for the measurement error their own judges introduce. This tool's SIMEX correction and confusion-matrix deconfounding treat grader noise as a first-class statistical concern rather than assuming the judge is ground truth.
+
+**TRAIL** ([Patronus AI](https://github.com/patronus-ai/trail-benchmark)) provides expert-annotated step-level labels for agent traces -- the closest prior work. TRAIL is a benchmark (labels + evaluation), not a measurement pipeline: it reports full-trace accuracy, not temporal error trajectories, and doesn't include the statistical machinery for decomposing degradation from confounds. This tool uses TRAIL as validation ground truth and extends it with temporal analysis.
+
+**Anthropic's "Demystifying Evals"** (2025) discusses per-step evaluation methodology for agents but does not provide reusable tooling or report degradation measurements. The step-phase confound this tool controls for -- agents shifting from exploration to action over a task, mimicking degradation -- is not addressed in that work.
+
+**Long-context retrieval** ([Liu et al. 2024](https://arxiv.org/abs/2307.03172), needle-in-a-haystack) measures how reliably models retrieve planted facts from long prompts. These are real effects, but they test a different capability: retrieving information from context is not the same as generating a correct next action given a history of prior actions. This tool measures the latter.
+
 ## References
 
 - Inspect AI: [inspect.aisi.org.uk](https://inspect.aisi.org.uk/) / [GitHub](https://github.com/UKGovernmentBEIS/inspect_ai)
@@ -187,3 +201,5 @@ scripts/
 - Xiong et al. 2023, [Can LLMs Express Their Uncertainty?](https://arxiv.org/abs/2306.13063)
 - Kapoor et al. 2024, [On Scalable Oversight with Weak LLMs Judging Strong Models](https://arxiv.org/abs/2407.04622)
 - Cook & Stefanski 1994, [Simulation-Extrapolation Estimation](https://doi.org/10.1080/01621459.1994.10476871) (SIMEX)
+- Liu et al. 2024, [Lost in the Middle](https://arxiv.org/abs/2307.03172)
+- Zheng et al. 2023, [Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena](https://arxiv.org/abs/2306.05685)
