@@ -29,6 +29,7 @@ from inspect_degradation.trace import Trace, TraceStep
 log = logging.getLogger(__name__)
 
 _DATASET_ID = "ByteDance-Seed/Multi-SWE-bench_trajs"
+_RESOLVED_DATASET_ID = "ByteDance-Seed/Multi-SWE-bench"
 _MAX_MESSAGE_CHARS = 8000
 
 # Maps friendly names to zip file name components.
@@ -203,6 +204,58 @@ def _zip_filename(model: str, scaffolding: str) -> str:
     return f"python/20250329_{scaff_part}_{model_part}.zip"
 
 
+def load_resolved_status(
+    model: str,
+    scaffolding: str,
+) -> dict[str, bool]:
+    """Load per-instance resolved status from trajectory ``score`` fields.
+
+    The Multi-SWE-bench trajectory files include a ``score`` field:
+    ``1`` = resolved, ``0`` = unresolved, ``None`` = unknown.
+    This function extracts scores for the given model/scaffolding
+    combination.
+
+    Returns a dict mapping ``instance_id`` to ``True``/``False``.
+    Instances with ``score=None`` are omitted.
+    """
+    try:
+        from huggingface_hub import hf_hub_download
+    except ImportError as exc:
+        raise RuntimeError(
+            "huggingface_hub is required; install via `pip install huggingface_hub`"
+        ) from exc
+
+    zip_name = _zip_filename(model, scaffolding)
+    log.info("loading resolved status from %s / %s", _DATASET_ID, zip_name)
+    zip_path = hf_hub_download(_DATASET_ID, zip_name, repo_type="dataset")
+
+    resolved: dict[str, bool] = {}
+    with zipfile.ZipFile(zip_path) as zf:
+        traj_files = [
+            n for n in zf.namelist()
+            if n.endswith(".json") or n.endswith(".traj")
+        ]
+        for tf in traj_files:
+            if "/" in tf:
+                instance_id = tf.split("/")[0]
+            else:
+                instance_id = tf.replace(".traj", "").replace(".json", "")
+
+            try:
+                with zf.open(tf) as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, KeyError):
+                continue
+
+            score = data.get("score")
+            if score is not None:
+                resolved[instance_id] = bool(score)
+
+    log.info("loaded resolved status for %d instances (%d resolved)",
+             len(resolved), sum(resolved.values()))
+    return resolved
+
+
 def load_multi_swebench(
     *,
     model: str,
@@ -212,6 +265,7 @@ def load_multi_swebench(
     min_steps: int | None = None,
     random_sample: bool = False,
     seed: int = 42,
+    include_resolved: bool = False,
 ) -> list[Trace]:
     """Load trajectories from the Multi-SWE-bench dataset.
 
@@ -224,6 +278,8 @@ def load_multi_swebench(
         limit: Optional cap on traces loaded.
         one_per_instance: Keep only first trace per instance_id.
         min_steps: Skip traces with fewer steps.
+        include_resolved: If True, extract resolved status from the
+            trajectory ``score`` fields (1=resolved, 0=unresolved).
 
     Returns:
         List of :class:`Trace` objects.
@@ -305,6 +361,9 @@ def load_multi_swebench(
             source_label = f"multi-swebench-{scaffolding}"
             trace_id = f"msb-{instance_id}-{model}-{scaffolding}"
 
+            score = data.get("score")
+            success = bool(score) if include_resolved and score is not None else None
+
             traces.append(
                 Trace(
                     trace_id=trace_id,
@@ -312,7 +371,7 @@ def load_multi_swebench(
                     task_id=instance_id,
                     model=model,
                     source=source_label,
-                    success=None,  # not included in this dataset
+                    success=success,
                     steps=tuple(steps),
                     metadata={
                         "scaffolding": scaffolding,
@@ -347,4 +406,5 @@ __all__ = [
     "AVAILABLE_SCAFFOLDINGS",
     "list_available",
     "load_multi_swebench",
+    "load_resolved_status",
 ]
