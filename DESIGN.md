@@ -8,6 +8,8 @@ A Python package that extends [Inspect AI](https://inspect.aisi.org.uk/) with **
 
 Current agent benchmarks measure final outcomes -- did the task succeed. They don't measure what happens *during* a task. An agent that makes one early mistake and then flawlessly executes the wrong plan for 20 steps looks identical to an agent that independently fails every step. These are very different failure modes requiring very different fixes, and no existing tooling distinguishes them.
 
+Existing approaches either provide labels without temporal analysis (TRAIL), evaluate single turns rather than multi-step trajectories (MT-Bench, AlpacaEval), or discuss methodology without providing reusable tooling (Anthropic's "Demystifying Evals"). The missing piece is a pipeline that integrates grading, grader validation, noise correction, and confound decomposition into a single composable system -- where each concern is independently testable and none assumes the others are correct.
+
 The package measures each step of a trace along a small set of dimensions, then applies established statistical methods to decompose degradation from confounds (task complexity, cascading errors, model identity).
 
 ## Per-step measurements
