@@ -1,0 +1,70 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "inspect-degradation"
+version = "0.1.0"
+description = "Within-run degradation analysis for AI agents, as an Inspect AI extension."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Alex Reff", email = "alex@reff.dev" }]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "inspect-ai>=0.3.50",
+    "pydantic>=2.6",
+    "pyyaml>=6.0",
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "scikit-learn>=1.4",
+    "statsmodels>=0.14",
+    "lifelines>=0.27",
+    "matplotlib>=3.8",
+    "tenacity>=8.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+    "mypy>=1.10",
+]
+datasets = [
+    "datasets>=2.18",
+    "huggingface-hub>=0.23",
+]
+
+[project.urls]
+Homepage = "https://github.com/reffdev/inspect-degradation"
+Repository = "https://github.com/reffdev/inspect-degradation"
+Issues = "https://github.com/reffdev/inspect-degradation/issues"
+
+[project.entry-points."inspect_ai"]
+inspect_degradation = "inspect_degradation._registry"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/inspect_degradation"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/inspect_degradation/prompts" = "inspect_degradation/prompts"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
