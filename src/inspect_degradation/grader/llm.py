@@ -117,9 +117,9 @@ class LLMGrader(Grader):
     """Grade trace steps with a single LLM judge using a fixed rubric.
 
     The grader is intentionally narrow: one model, one rubric, one
-    response schema. To compose multiple judges (cheap-then-expensive
-    escalation), wrap instances of this class in
-    :class:`~inspect_degradation.grader.cascade.CascadeGrader`.
+    response schema. To compose multiple judges, wrap instances of
+    this class in
+    :class:`~inspect_degradation.grader.ensemble.EnsembleGrader`.
     """
 
     def __init__(self, config: LLMGraderConfig, rubric: Rubric) -> None:

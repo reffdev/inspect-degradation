@@ -42,7 +42,8 @@ def degradation_scorer(
     Args:
         grader: A pre-built grader. If omitted, an :class:`LLMGrader` is
             constructed with the default rubric and ``grader_model``.
-            Passing a custom grader is the supported way to use a cascade.
+            Passing a custom grader is the supported way to compose
+            multiple graders (e.g., EnsembleGrader).
         grader_model: Inspect model spec used when ``grader`` is not given.
         rubric_name: Stem of a rubric YAML in ``inspect_degradation/prompts/``.
 

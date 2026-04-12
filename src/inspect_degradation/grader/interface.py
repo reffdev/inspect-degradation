@@ -1,12 +1,12 @@
 """Grader interface (abstract base class).
 
 This module defines *only* the interface — no model wiring, no rubric loading,
-no I/O. Concrete graders live alongside it (``llm.py``, ``cascade.py``) and
+no I/O. Concrete graders live alongside it (``llm.py``, ``ensemble.py``) and
 implement :meth:`Grader.grade_step`. The base class supplies a correct,
 bounded-concurrency :meth:`Grader.grade_trace` so subclasses never need to
 re-implement orchestration.
 
-Why an ABC and not a Protocol: graders compose (``CascadeGrader`` wraps two
+Why an ABC and not a Protocol: graders compose (``EnsembleGrader`` wraps
 others) and we want ``isinstance`` checks plus shared behavior to live in
 one place. Protocols would force every concrete grader to re-implement
 ``grade_trace`` identically.
@@ -27,7 +27,7 @@ class GraderSnapshot:
     """Serializable, configuration-only picture of a grader.
 
     Concrete graders return one from :meth:`Grader.snapshot`. The shape is
-    intentionally a recursive dataclass so a :class:`CascadeGrader` snapshot
+    intentionally a recursive dataclass so an :class:`EnsembleGrader` snapshot
     can nest its children's snapshots without erasing their type.
 
     Snapshots are pure data: they round-trip through JSON and never hold
@@ -75,8 +75,8 @@ class Grader(ABC):
     """
 
     #: Maximum number of step grades a single ``grade_trace`` call may have
-    #: in flight at once. Subclasses can override; ``CascadeGrader`` inherits
-    #: whatever its primary grader uses, since the cascade itself adds no
+    #: in flight at once. Subclasses can override; ``EnsembleGrader`` inherits
+    #: whatever its primary grader uses, since the ensemble itself adds no
     #: independent rate limit.
     max_concurrency: int = 8
 
@@ -85,7 +85,7 @@ class Grader(ABC):
     def name(self) -> str:
         """Stable identifier written into ``GradedStep.grader_model``.
 
-        For ``LLMGrader`` this is the model spec; for ``CascadeGrader`` it's
+        For ``LLMGrader`` this is the model spec; for ``EnsembleGrader`` it's
         a composite name. The validation harness uses this to disambiguate
         which grader produced which prediction.
         """
