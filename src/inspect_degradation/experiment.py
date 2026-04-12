@@ -5,7 +5,7 @@ its results so a reader can answer:
 
 * which grader (and which rubric version) produced these grades?
 * which dataset slice was used?
-* what cascade policy, if any?
+* what ensemble policy, if any?
 * when was it run, against which package version, against which git commit?
 
 The dataclass is a *snapshot*: once constructed, it does not reach back

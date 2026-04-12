@@ -291,7 +291,7 @@ class LLMGrader(Grader):
         validity_counts = Counter(s.validity.value for s in samples)
         unanimous = len(validity_counts) == 1
 
-        # Preserve the full sample set on the returned grade so cascade
+        # Preserve the full sample set on the returned grade so ensemble
         # policies can read agreement signal without re-running the
         # samples, and so post-hoc analysis has per-sample detail.
         enriched_raw: dict[str, object] = dict(consensus.raw or {})
