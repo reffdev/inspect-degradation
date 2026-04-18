@@ -141,8 +141,22 @@ class Rubric(BaseModel):
                 step indices end up graded with less context than
                 earlier ones — a step-index-correlated grader
                 artifact masquerading as degradation. Bounding the
-                block here turns silent truncation into a measured,
-                uniform truncation we can audit and report.
+                block here turns silent truncation into a measured
+                truncation we can audit and report.
+
+                **WARNING — known not to be uniform.** In practice the
+                cap triggers on later-position steps (which have more
+                accumulated prior content) and rarely on early-position
+                steps, so truncation rate is strongly correlated with
+                step_index. Observed rates on the 2026 degradation
+                study ranged from 0% at step 0 to 88% at step 25 on
+                llama-70b Nebius traces. Setting this budget does NOT
+                eliminate the position-correlated artifact it is meant
+                to make auditable; callers running temporal analyses
+                should either set ``budget=None`` (and rely on a
+                model with sufficient native context) or explicitly
+                stratify their kappa/slope estimates by per-step
+                truncation status recorded in diagnostics.
 
         Returns:
             ``(rendered_text, diagnostics)``. Diagnostics carries
