@@ -4,9 +4,9 @@ Within-run degradation analysis for AI agents, built as an [Inspect AI](https://
 
 Does the agent get worse as it works longer? Agent benchmarks measure final outcomes -- did the task succeed -- but not what happens *during* a task. An agent that makes one early mistake and flawlessly executes the wrong plan for 20 steps looks identical to one that independently fails every step. These are different failure modes, and no existing tooling distinguishes them.
 
-This package measures each step of an agent trace along structured dimensions, validates the grader against human labels, corrects downstream statistics for grader noise, and decomposes degradation from confounds (task complexity, phase composition, cascading errors, model identity). The pipeline is designed around a specific lesson: naive step-level regressions produce convincing artifacts. The [companion study](https://github.com/reffdev/inspect-degradation-study) found degradation on 5 of 14 configurations (3 surviving Benjamini-Hochberg correction), improvement on 2, and null on 7. Phase composition (agents shift from exploration to action over a task) attenuates the raw slope by roughly half but does not drive it to zero. The study also characterizes two properties of the grading instrument - length-dependent accuracy and a construct mismatch with hindsight-informed human labels - that affect any LLM-as-judge temporal analysis.
+This package measures each step of an agent trace along structured dimensions, validates the grader against human labels, corrects downstream statistics for grader noise, and decomposes degradation from confounds (task complexity, phase composition, cascading errors, model identity). The pipeline is designed around a specific lesson: naive step-level regressions produce convincing artifacts. The [companion study](https://github.com/reffdev/inspect-degradation-study) ran 15 configurations in total; of the 14 graded under full context (one was dropped after a context-cap pilot was found to introduce position-correlated bias), 5 show degradation (3 surviving Benjamini-Hochberg correction), 2 show improvement, and 7 are null. Phase composition (agents shift from exploration to action over a task) attenuates the raw slope by roughly half but does not drive it to zero. The study also characterizes two properties of the grading instrument - length-dependent accuracy and a construct mismatch with hindsight-informed human labels - that affect any LLM-as-judge temporal analysis.
 
-For full results across 15 configurations (8+ models, 4 scaffoldings, ~24,000 graded steps), see [inspect-degradation-study](https://github.com/reffdev/inspect-degradation-study).
+For full results (8+ models, 4 scaffoldings, ~24,000 graded steps), see [inspect-degradation-study](https://github.com/reffdev/inspect-degradation-study).
 
 ## How it works
 
@@ -132,7 +132,7 @@ python scripts/power_analysis.py --n-traces 50 --steps-per-trace 20
 
 ## Provider routing
 
-Provider-agnostic via Inspect AI's `get_model`. Works with direct API keys, OpenRouter, LiteLLM, Portkey, or any OpenAI-compatible endpoint:
+Provider-agnostic via Inspect AI's `get_model`. Any OpenAI-compatible endpoint works - direct provider APIs, unified gateways (OpenRouter, LiteLLM proxy, Portkey), or local inference servers - by setting the standard `OPENAI_API_KEY` / `OPENAI_BASE_URL` pair before invoking the grader. There is no provider-specific code in this package; routing is a deployment concern.
 
 ```bash
 # Direct
@@ -193,6 +193,22 @@ scripts/
 **Anthropic's "Demystifying Evals"** (2025) discusses per-step evaluation methodology for agents but does not provide reusable tooling or report degradation measurements. The step-phase confound this tool controls for -- agents shifting from exploration to action over a task, mimicking degradation -- is not addressed in that work.
 
 **Long-context retrieval** ([Liu et al. 2024](https://arxiv.org/abs/2307.03172), needle-in-a-haystack) measures how reliably models retrieve planted facts from long prompts. These are real effects, but they test a different capability: retrieving information from context is not the same as generating a correct next action given a history of prior actions. This tool measures the latter.
+
+## Limitations
+
+A few things to keep in mind when interpreting results.
+
+**Grader validation corpus is small.** The built-in TRAIL integration provides 148 expert-annotated traces. That is enough to estimate per-dimension grader accuracy with usable but not narrow CIs, and it is the largest expert-labeled set the package can plausibly ship. Downstream noise corrections (SIMEX, confusion-matrix deconfounding) inherit the uncertainty of the validation estimates; reporting an upper-bound disagreement rate alongside any temporal claim is the load-bearing move.
+
+**SIMEX assumes a uniform flip rate.** The label-noise correction estimates a single per-dimension flip probability and treats it as constant across step position, complexity, and trace length. If grader noise is itself position-dependent - e.g. accuracy degrades on long traces, which the companion study finds - SIMEX will under- or over-correct in directions that depend on the unmeasured covariate. Treat SIMEX-corrected slopes as a sensitivity check, not a debiased point estimate.
+
+**Step-phase classification is heuristic.** The exploration-vs-action covariate that controls the dominant confound is computed from agent commands using a layered detector (Auto-SWE tool calls, OpenHands subcommands, SWE-agent XML blocks, shell-command fallback). It works well on the scaffoldings the package has loaders for; it has not been validated on novel agent frameworks and will silently mislabel them. Adding a new framework means writing a step-phase rule for it.
+
+**Grader cost scales linearly.** Grading 1,000 traces of 30 steps each is 30,000 model calls per grader. An ensemble of three is 90,000. Self-consistency at sample_n=3 is another 3×. Budget accordingly; the resumable cache makes interruptions cheap to recover from but does not change total cost.
+
+**Rubric is calibrated against TRAIL-style errors.** The five-dimension closed-set rubric was tuned to match the kinds of mistakes TRAIL annotators flag (hallucinations, wrong tool calls, looping, wrong-task drift). It will probably underperform on novel error modes - e.g. specification-gaming, deceptive-step patterns, or domain-specific failures the rubric has no language for. The rubric is a YAML file in `prompts/`; iterating it against a new error taxonomy is the supported extension path.
+
+**Change-point detection's autocorrelation adjustment is heuristic.** When the optional autocorrelation adjustment is enabled, the BIC penalty is doubled if a Ljung-Box test rejects white noise. The 2× factor is a coarse approximation, not a derived constant; results sensitive to the exact change-point list should be cross-validated on a hold-out segment.
 
 ## References
 

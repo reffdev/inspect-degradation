@@ -13,11 +13,9 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from numpy.random import Generator
-
-log = logging.getLogger(__name__)
 
 from inspect_degradation.analysis.statistics import (
     NINETY_FIVE,
@@ -33,21 +31,31 @@ from inspect_degradation.validation.agreement import (
     score_agreement,
 )
 
+log = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class ValidationResult:
     """The full output of a validation run.
 
     Carries both the per-dimension agreement report (the headline numbers)
-    and the actual graded traces (so callers can reuse them — for cost
-    accounting, error analysis, or re-scoring with a different metric —
+    and the actual graded traces (so callers can reuse them - for cost
+    accounting, error analysis, or re-scoring with a different metric -
     without re-paying the grading cost).
+
+    ``failed_trace_ids`` lets callers audit which traces did not grade
+    successfully on this run. The runner does not raise on per-trace
+    failures - a single broken trace would otherwise cancel every
+    other in-flight grading call - but silently dropping the failures
+    would let downstream agreement statistics quietly compute over a
+    smaller-than-requested sample. The list is empty on a clean run.
     """
 
     report: AgreementReport
     predicted: list[GradedTrace]
     n_from_cache: int
     n_freshly_graded: int
+    failed_trace_ids: list[str] = field(default_factory=list)
 
 
 async def run_validation(
@@ -133,6 +141,7 @@ async def run_validation(
         )
 
     freshly_graded: list[tuple[int, GradedTrace]] = []
+    failed_trace_ids: list[str] = []
     if pending_traces:
         log.info(
             "[%s] grading %d traces (max_concurrency=%d, %d cached)",
@@ -143,10 +152,9 @@ async def run_validation(
         )
         tasks = [_grade_one_trace(trace) for _, trace in pending_traces]
         outcomes = await asyncio.gather(*tasks, return_exceptions=True)
-        n_errors = 0
         for (i, trace), outcome in zip(pending_traces, outcomes, strict=True):
             if isinstance(outcome, BaseException):
-                n_errors += 1
+                failed_trace_ids.append(trace.trace_id)
                 log.error(
                     "trace %s failed: %s: %s",
                     trace.trace_id,
@@ -158,10 +166,10 @@ async def run_validation(
             if cache is not None:
                 cache.append(graded)
             freshly_graded.append((i, graded))
-        if n_errors:
+        if failed_trace_ids:
             log.warning(
                 "%d/%d traces failed; they will be retried on the next run",
-                n_errors,
+                len(failed_trace_ids),
                 len(pending_traces),
             )
 
@@ -186,4 +194,5 @@ async def run_validation(
         predicted=predicted,
         n_from_cache=n_from_cache,
         n_freshly_graded=n_freshly_graded,
+        failed_trace_ids=failed_trace_ids,
     )

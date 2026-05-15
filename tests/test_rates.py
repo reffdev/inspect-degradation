@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import math
 
-import pytest
 from conftest import make_graded_step, make_graded_trace
 from numpy.random import default_rng
 
@@ -127,7 +126,8 @@ class TestPooledRate:
         width_95 = e95.ci_high - e95.ci_low
         width_99 = e99.ci_high - e99.ci_low
         # On identical traces the bootstrap width is zero at every
-        # level; introduce mild heterogeneity to see a real widening.
+        # level, so nondecreasing is trivially satisfied (0 <= 0 <= 0).
+        assert width_90 <= width_95 <= width_99
 
 
 class TestPooledRateHeterogeneous:

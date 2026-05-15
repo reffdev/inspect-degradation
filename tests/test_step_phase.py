@@ -1,6 +1,5 @@
 """Tests for the step-phase classifier."""
 
-import pytest
 
 from inspect_degradation.step_phase import classify_step_phase
 

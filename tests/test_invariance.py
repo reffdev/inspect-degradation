@@ -148,3 +148,89 @@ class TestTaskInvariance:
             seed=4,
         )
         json.dumps(report.to_dict())
+
+
+class TestInvarianceFalsification:
+    """Verify the invariance machinery actually flags broken graders.
+
+    The two TestPositionInvariance / TestTaskInvariance classes above
+    exercise the *endpoints* - identity (zero disagreement) and
+    flip-everything (100% disagreement). Those are happy-path checks:
+    they confirm the report shape and the counter, but do not
+    demonstrate the test could catch a *plausibly* broken grader.
+
+    The test below covers that gap. An "always pass" grader is the
+    canonical broken-but-plausible case (e.g., a refusal-handling
+    bug that silently classifies every step as productive). It must
+    be flagged with high disagreement against any corpus where the
+    baseline contains failures or neutrals - otherwise the
+    falsification machinery is itself broken and degradation claims
+    built on top of it are unfounded.
+    """
+
+    def _mixed_corpus(self) -> list[GradedTrace]:
+        """Corpus where validity rotates pass / fail / neutral.
+
+        Roughly two-thirds of steps are *not* pass, so an always-pass
+        regrader will disagree on those.
+        """
+        rotation = [Validity.pass_, Validity.fail, Validity.neutral]
+        traces: list[GradedTrace] = []
+        for t in range(4):
+            steps = [_step(i, validity=rotation[i % 3]) for i in range(6)]
+            traces.append(
+                GradedTrace(
+                    trace_id=f"mixed_t{t}",
+                    task_id=f"mixed_task{t}",
+                    model="m",
+                    steps=steps,
+                )
+            )
+        return traces
+
+    def test_position_test_flags_always_pass_grader(self):
+        """Position-invariance test must flag an always-pass grader
+        as divergent on a mixed-validity corpus.
+        """
+        traces = self._mixed_corpus()
+
+        def always_pass(step: GradedStep, new_pos: int, new_task: str) -> GradedStep:
+            return _step(new_pos, validity=Validity.pass_)
+
+        report = position_invariance_test(
+            traces,
+            regrade_fn=always_pass,
+            sample_size=24,
+            seed=11,
+        )
+        # Two-thirds of steps in the rotation are not pass; an
+        # always-pass regrader will disagree on every one of them.
+        # We allow a 0.10 margin below the expected 0.667 to absorb
+        # sampling variance from the random subsample.
+        assert report.disagreement_rate.value > 0.5, (
+            "falsification failed: always-pass grader produced "
+            f"disagreement rate {report.disagreement_rate.value:.3f} "
+            "on a mixed corpus where >2/3 of baseline steps were not pass"
+        )
+        # The CI lower bound must also exceed any plausible
+        # "no-effect" rate (~5%); otherwise a paper citing this
+        # report could not distinguish broken from noisy.
+        assert report.disagreement_rate.ci_low > 0.20
+
+    def test_task_test_flags_always_pass_grader(self):
+        """Same falsification check for the task-invariance probe."""
+        traces = self._mixed_corpus()
+
+        def always_pass(step: GradedStep, new_pos: int, new_task: str) -> GradedStep:
+            return _step(step.step_index, validity=Validity.pass_)
+
+        report = task_invariance_test(
+            traces,
+            regrade_fn=always_pass,
+            sample_size=18,
+            seed=13,
+        )
+        assert report.disagreement_rate.value > 0.5, (
+            f"task invariance: always-pass grader produced "
+            f"disagreement rate {report.disagreement_rate.value:.3f}"
+        )

@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import math
 
-import numpy as np
 import pandas as pd
 import pytest
 from numpy.random import default_rng
@@ -25,7 +24,6 @@ pytest.importorskip("statsmodels")  # noqa: E402
 from inspect_degradation.analysis.mixed_effects import (  # noqa: E402
     CoefficientRow,
     MixedEffectsResult,
-    RandomEffects,
     fit_mixed_effects,
     fit_step_level_glmm,
     fit_step_level_model,

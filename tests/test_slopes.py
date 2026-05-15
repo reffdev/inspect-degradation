@@ -21,16 +21,13 @@ from __future__ import annotations
 
 import math
 
-import pytest
 from conftest import make_graded_step, make_graded_trace
 from numpy.random import default_rng
 
 from inspect_degradation.analysis.slopes import (
-    SlopeResult,
     error_rate_slope,
     loop_rate_slope,
     neutral_rate_slope,
-    per_trace_mean_slope,
     pooled_slope,
 )
 from inspect_degradation.schema import Validity
@@ -201,7 +198,7 @@ class TestSlopeBootstrapCI:
 
 
 # ---------------------------------------------------------------------------
-# Neutral slope — distinct from error slope
+# Neutral slope - distinct from error slope
 # ---------------------------------------------------------------------------
 
 

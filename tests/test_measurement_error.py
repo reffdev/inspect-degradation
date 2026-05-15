@@ -38,11 +38,9 @@ pytest.importorskip("statsmodels")  # noqa: E402
 
 from inspect_degradation.analysis.measurement_error import (  # noqa: E402
     ConfusionMatrix,
-    SimexResult,
     deconfound_proportion,
     simex_correct,
 )
-from inspect_degradation.analysis.statistics import NINETY_FIVE  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

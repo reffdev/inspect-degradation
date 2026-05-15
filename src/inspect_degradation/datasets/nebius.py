@@ -32,7 +32,6 @@ emits a command and the environment returns the output.
 from __future__ import annotations
 
 import logging
-from collections.abc import Iterator
 from typing import Any
 
 from inspect_degradation.trace import Trace, TraceStep

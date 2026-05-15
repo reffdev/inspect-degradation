@@ -132,3 +132,68 @@ async def test_partial_cache_only_skips_matching_trace_ids(tmp_path):
     assert result.n_from_cache == 1
     assert result.n_freshly_graded == 1
     assert grader.calls == 1
+
+
+class _SelectivelyFailingGrader(Grader):
+    """Grader that raises for a configured trace_id, otherwise grades pass.
+
+    Used to confirm the runner does not cancel the whole batch when a
+    single trace's grading raises and that the failed trace_id surfaces
+    on the result so callers can audit it.
+    """
+
+    def __init__(self, fail_on: str) -> None:
+        self._fail_on = fail_on
+        self.calls = 0
+
+    @property
+    def name(self) -> str:
+        return "selective"
+
+    async def grade_step(self, ctx: StepContext) -> GradedStep:
+        self.calls += 1
+        return GradedStep(
+            step_index=ctx.step_index,
+            validity=Validity.pass_,
+            complexity=ComplexityLevel.low,
+            dependency=Dependency.not_applicable,
+            is_looping=False,
+            grader_model=self.name,
+        )
+
+    async def grade_trace(self, trace: Trace):  # type: ignore[override]
+        if trace.trace_id == self._fail_on:
+            raise RuntimeError(f"synthetic failure for {trace.trace_id}")
+        return await super().grade_trace(trace)
+
+
+@pytest.mark.asyncio
+async def test_failed_traces_are_surfaced_not_silently_dropped():
+    grader = _SelectivelyFailingGrader(fail_on="b")
+    traces = [_trace_with_id("a", 2), _trace_with_id("b", 2), _trace_with_id("c", 2)]
+    references = [
+        _matching_reference("a", 2),
+        _matching_reference("b", 2),
+        _matching_reference("c", 2),
+    ]
+
+    result = await run_validation(grader=grader, traces=traces, reference=references)
+
+    # Two traces graded successfully; the failing one is excluded from
+    # the predicted set but must appear in failed_trace_ids so
+    # downstream auditing can see what was dropped.
+    assert result.n_freshly_graded == 2
+    assert result.failed_trace_ids == ["b"]
+    assert {p.trace_id for p in result.predicted} == {"a", "c"}
+    # Agreement scoring should have proceeded over the two successful
+    # traces; the report must not silently report a 0/0 nan.
+    assert result.report.n_pairs == 4  # 2 traces * 2 steps each
+
+
+@pytest.mark.asyncio
+async def test_failed_trace_ids_is_empty_on_clean_run():
+    grader = _StubGrader()
+    traces = [_trace_with_id("a", 1)]
+    references = [_matching_reference("a", 1)]
+    result = await run_validation(grader=grader, traces=traces, reference=references)
+    assert result.failed_trace_ids == []

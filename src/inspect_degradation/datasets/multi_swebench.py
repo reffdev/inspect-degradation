@@ -21,7 +21,6 @@ from __future__ import annotations
 import json
 import logging
 import zipfile
-from pathlib import Path
 from typing import Any
 
 from inspect_degradation.trace import Trace, TraceStep

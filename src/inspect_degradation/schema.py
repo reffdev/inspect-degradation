@@ -59,6 +59,14 @@ class Validity(str, Enum):
 
 
 class Dependency(str, Enum):
+    """Whether a failing step's error originated independently or cascaded.
+
+    ``independent`` means the agent had a workable state and got it wrong
+    on its own.  ``dependent`` means this failure is a downstream
+    consequence of an earlier one.  ``not_applicable`` is used when the
+    step is not a failure, so dependency is not meaningful.
+    """
+
     independent = "independent"
     dependent = "dependent"
     not_applicable = "n/a"

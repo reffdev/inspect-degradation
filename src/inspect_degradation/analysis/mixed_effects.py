@@ -399,7 +399,6 @@ def fit_mixed_effects(
     # ComplexityLevel from traces_to_frame) cause Patsy index errors.
     # Coerce them to their string values so Patsy treats them as
     # ordinary categoricals.
-    needs_copy = False
     bool_cols = [c for c in df.columns if df[c].dtype == bool]
     # Detect columns holding enum objects: dtype is 'object' and the
     # first non-null value has a .value attribute (Enum convention).
@@ -1211,7 +1210,7 @@ def fit_step_level_glmm(
         for i, name in enumerate(param_names):
             # AME = mean(pdf(X@beta) * beta_i)
             marginal_effects[name] = float(np.mean(pdf_vals * fe_mean[i]))
-    except Exception:
+    except Exception:  # AME can fail on singular design matrices; non-critical
         marginal_effects = {}
 
     extras["marginal_effects"] = marginal_effects
@@ -1222,7 +1221,7 @@ def fit_step_level_glmm(
         # elbo may be an array; take the last value
         try:
             log_likelihood = float(np.asarray(log_likelihood).flat[-1])
-        except Exception:
+        except Exception:  # ELBO may be missing or non-scalar; fall back to NaN
             log_likelihood = float("nan")
 
     # --- Convergence & fit_usable ---

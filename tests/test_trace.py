@@ -1,7 +1,7 @@
 import pytest
 from conftest import make_step, make_trace
 
-from inspect_degradation.trace import Trace, TraceStep
+from inspect_degradation.trace import TraceStep
 
 
 def test_prior_returns_strict_prefix():

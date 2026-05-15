@@ -35,6 +35,7 @@ model families.
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
@@ -63,6 +64,8 @@ if TYPE_CHECKING:  # avoid forcing inspect_ai import at type-check time only
 #: returned :class:`GradedStep` when ``sample_n > 1``. Purely diagnostic:
 #: nothing in the production pipeline gates on this value.
 SELF_CONSISTENCY_KEY = "self_consistency"
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -133,6 +136,11 @@ class LLMGrader(Grader):
         self._n_renders = 0
         self._n_truncations = 0
         self._total_steps_dropped = 0
+        # Count of fallbacks produced by the outer last-resort handler in
+        # ``grade_step``. This captures bugs that escape the parse-failure
+        # and empty-completion paths; surface via :meth:`truncation_summary`
+        # so end-of-run reporting can flag silent corruption.
+        self._n_unexpected_fallbacks = 0
 
     # ------------------------------------------------------------------ Grader
 
@@ -165,8 +173,19 @@ class LLMGrader(Grader):
             return await self._grade_step_inner(ctx)
         except Exception as exc:
             # Last-resort catch: if anything unexpected escapes the
-            # parse-failure and empty-completion handlers, we still
-            # return a fallback step rather than killing the trace.
+            # parse-failure and empty-completion handlers we return a
+            # fallback step rather than killing the trace, but we count
+            # and log it loudly. A non-zero
+            # ``unexpected_fallbacks`` rate at end of run indicates a
+            # bug in this module or its dependencies - not legitimate
+            # parse failure - and any analysis built on the resulting
+            # neutrals is biased.
+            self._n_unexpected_fallbacks += 1
+            log.exception(
+                "unexpected exception in grade_step at step %d: %s",
+                ctx.step_index,
+                type(exc).__name__,
+            )
             return self._fallback_step(
                 step_index=ctx.step_index,
                 error=GraderResponseError(
@@ -208,6 +227,7 @@ class LLMGrader(Grader):
                 "rate": 0.0,
                 "total_steps_dropped": 0,
                 "mean_dropped_per_truncation": 0.0,
+                "unexpected_fallbacks": self._n_unexpected_fallbacks,
             }
         return {
             "n_renders": self._n_renders,
@@ -219,6 +239,7 @@ class LLMGrader(Grader):
                 if self._n_truncations > 0
                 else 0.0
             ),
+            "unexpected_fallbacks": self._n_unexpected_fallbacks,
         }
 
     # ------------------------------------------------------------------ grading paths

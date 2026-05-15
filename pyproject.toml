@@ -10,6 +10,13 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Alex Reff", email = "alex@reff.dev" }]
+keywords = [
+    "inspect-ai",
+    "agent-evaluation",
+    "llm-as-judge",
+    "agent-trajectory",
+    "degradation",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
@@ -57,9 +64,6 @@ inspect_degradation = "inspect_degradation._registry"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/inspect_degradation"]
-
-[tool.hatch.build.targets.wheel.force-include]
-"src/inspect_degradation/prompts" = "inspect_degradation/prompts"
 
 [tool.ruff]
 line-length = 100

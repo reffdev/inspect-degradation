@@ -157,12 +157,8 @@ class TestFailingRunLengthEstimate:
         b = _short_cascade_trace("b")  # two failing runs of length 1
         scalar = mean_steps_to_non_failure([a, b])
         assert scalar is not None
-        est = mean_failing_run_length_estimate(
-            [a, b, a, b], rng=default_rng(0), n_resamples=300
-        )
-        # Point value may differ if trace replication changes the mix,
-        # but on the same (a, b) multiset the scalar and the bootstrap
-        # point must agree.
+        # On the same (a, b) multiset the scalar reducer and the
+        # bootstrap point estimate must agree.
         est_single = mean_failing_run_length_estimate(
             [a, b], rng=default_rng(0), n_resamples=300
         )

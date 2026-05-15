@@ -14,7 +14,6 @@ from inspect_degradation.schema import (
     Validity,
 )
 from inspect_degradation.validation.agreement import (
-    DimensionAgreement,
     pair_grades,
     score_agreement,
 )

@@ -46,7 +46,8 @@ def test_ordinal_levels_are_type_distinct():
 def test_severity_required_only_when_failing():
     # Pass step with severity is rejected.
     import pytest
-    with pytest.raises(Exception):
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
         GradedStep(
             step_index=0,
             validity=Validity.pass_,

@@ -24,8 +24,6 @@ pytest.importorskip("lifelines")
 
 from inspect_degradation.analysis.statistics import NINETY_FIVE, NINETY_NINE  # noqa: E402
 from inspect_degradation.analysis.survival import (  # noqa: E402
-    KMCurve,
-    KMResult,
     first_error_km,
 )
 

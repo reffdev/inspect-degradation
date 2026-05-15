@@ -19,7 +19,9 @@ Usage from the command line::
 
 from __future__ import annotations
 
+import argparse
 import json
+import logging
 import sys
 from pathlib import Path
 from typing import Any
@@ -28,6 +30,8 @@ from inspect_degradation.analysis.frame import traces_to_frame
 from inspect_degradation.analysis.statistics import Estimate
 from inspect_degradation.integration.scorer import GRADED_TRACE_METADATA_KEY
 from inspect_degradation.schema import GradedTrace
+
+log = logging.getLogger(__name__)
 
 
 def extract_graded_traces(log_path: str | Path) -> list[GradedTrace]:
@@ -43,13 +47,13 @@ def extract_graded_traces(log_path: str | Path) -> list[GradedTrace]:
     """
     from inspect_ai.log import read_eval_log
 
-    log = read_eval_log(str(log_path))
+    eval_log = read_eval_log(str(log_path))
     traces: list[GradedTrace] = []
 
-    if not log.samples:
+    if not eval_log.samples:
         return traces
 
-    for sample in log.samples:
+    for sample in eval_log.samples:
         if not sample.scores:
             continue
         for _scorer_name, score in sample.scores.items():
@@ -161,7 +165,8 @@ def analyze_traces(
             "n_censored": km.n_censored,
         }
     except Exception as e:
-        report["survival"] = {"error": str(e)}
+        log.exception("survival analysis failed")
+        report["survival"] = {"error": f"{type(e).__name__}: {e}"}
 
     # -- Cascade chains ------------------------------------------------------
     report["cascade_chain_length_mean"] = _fmt(cascade_chain_length_mean_estimate(traces))
@@ -172,20 +177,26 @@ def analyze_traces(
     report["loop_rate"] = loop_rate_val if loop_rate_val is not None else float("nan")
     try:
         report["loop_chain_length_mean"] = _fmt(loop_chain_length_mean_estimate(traces))
-    except Exception:
-        report["loop_chain_length_mean"] = {"value": float("nan")}
+    except Exception as e:
+        log.exception("loop_chain_length_mean_estimate failed")
+        report["loop_chain_length_mean"] = {
+            "value": float("nan"),
+            "error": f"{type(e).__name__}: {e}",
+        }
 
     # -- Autocorrelation -----------------------------------------------------
     try:
         acf_result = per_trace_acf(traces)
         report["mean_lag1_acf"] = acf_result.mean_acf[0] if acf_result.mean_acf else float("nan")
     except Exception:
+        log.exception("per_trace_acf failed")
         report["mean_lag1_acf"] = float("nan")
 
     try:
         lb = ljung_box_per_trace(traces)
         report["ljung_box_rejection_rate"] = lb.rejection_rate if hasattr(lb, "rejection_rate") else None
     except Exception:
+        log.exception("ljung_box_per_trace failed")
         report["ljung_box_rejection_rate"] = None
 
     return report
@@ -252,32 +263,76 @@ def _print_report(report: dict[str, Any]) -> None:
         print(f"Mean lag-1 ACF: {acf:.3f}" if isinstance(acf, float) else "")
 
 
-def main() -> None:
-    """CLI entry point: analyze an Inspect eval log."""
-    if len(sys.argv) < 2:
-        print("Usage: python -m inspect_degradation.analysis.from_eval_log <eval.log> [--glmm]")
-        sys.exit(1)
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="python -m inspect_degradation.analysis.from_eval_log",
+        description=(
+            "Extract graded traces from an Inspect AI eval log and run the "
+            "full degradation analysis pipeline (rates, slopes, mixed-effects "
+            "regression, survival, cascade chains, loops, autocorrelation)."
+        ),
+    )
+    parser.add_argument(
+        "log_path",
+        type=Path,
+        help="Path to an Inspect AI eval log file (.json or .eval).",
+    )
+    parser.add_argument(
+        "--glmm",
+        dest="use_glmm",
+        action="store_true",
+        help=(
+            "Fit a logit-link GLMM instead of the linear probability model. "
+            "Recommended when the marginal error rate is below ~10%% or above ~90%%."
+        ),
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        default=None,
+        help=(
+            "Path to write the JSON report to. Defaults to the eval log path "
+            "with a '.degradation.json' suffix."
+        ),
+    )
+    parser.add_argument(
+        "--json",
+        dest="json_only",
+        action="store_true",
+        help="Emit the JSON report to stdout and skip the human-readable summary.",
+    )
+    return parser
 
-    log_path = sys.argv[1]
-    use_glmm = "--glmm" in sys.argv
 
-    if not Path(log_path).exists():
-        print(f"File not found: {log_path}")
-        sys.exit(1)
+def main(argv: list[str] | None = None) -> int:
+    """CLI entry point: analyze an Inspect eval log.
 
-    report = analyze_eval_log(log_path, use_glmm=use_glmm)
+    Returns the process exit code so this is also callable from tests.
+    """
+    args = _build_parser().parse_args(argv)
+
+    if not args.log_path.exists():
+        print(f"File not found: {args.log_path}", file=sys.stderr)
+        return 1
+
+    report = analyze_eval_log(args.log_path, use_glmm=args.use_glmm)
 
     if "error" in report:
-        print(f"Error: {report['error']}")
-        sys.exit(1)
+        print(f"Error: {report['error']}", file=sys.stderr)
+        return 1
 
-    _print_report(report)
-
-    # Also write JSON report alongside the log
-    json_path = Path(log_path).with_suffix(".degradation.json")
+    json_path = args.output or args.log_path.with_suffix(".degradation.json")
     json_path.write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
-    print(f"\nFull report written to {json_path}")
+
+    if args.json_only:
+        print(json.dumps(report, indent=2, default=str))
+    else:
+        _print_report(report)
+        print(f"\nFull report written to {json_path}")
+
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

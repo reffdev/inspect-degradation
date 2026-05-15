@@ -65,6 +65,46 @@ class TestCoxFirstError:
         assert lo < hr < hi
         assert result.n_events > 0
 
+    def test_recovers_log_hazard_ratio_magnitude(self):
+        """Ground-truth recovery: the fitted log-hazard-ratio must be
+        close to the value implied by the synthetic discrete-hazard DGP.
+
+        The DGP draws first-error times as geometric with per-step
+        hazards ``p_fast`` and ``p_slow``. Cox PH is a continuous-time
+        model, so the textbook target is the *continuous-time
+        equivalent* log-rate ratio
+        ``log(-log(1-p_slow) / -log(1-p_fast))``, which Poisson-process
+        approximates the discrete geometric. With n=200/model the
+        sampling spread of the Cox MLE around that target is ~0.14,
+        so a 0.40 tolerance keeps the test deterministic across seeds
+        without making the assertion vacuous (a sign-only check would
+        permit estimates an order of magnitude off).
+        """
+        fast_hazard = 0.15
+        slow_hazard = 0.03
+        df = _make_two_model_corpus(
+            n_per_model=200,
+            fast_hazard=fast_hazard,
+            slow_hazard=slow_hazard,
+            seed=1,
+        )
+        result = cox_first_error(df, covariates=["model"])
+        row = result.coefficient("model_slow")
+
+        true_log_hr = math.log(
+            -math.log(1.0 - slow_hazard) / -math.log(1.0 - fast_hazard)
+        )
+        assert math.isclose(row.estimate, true_log_hr, abs_tol=0.40), (
+            f"Cox log-hazard-ratio recovery failed: estimate={row.estimate:+.4f}, "
+            f"true={true_log_hr:+.4f}, |delta|={abs(row.estimate - true_log_hr):.4f}"
+        )
+        # CI must bracket the truth - the strongest single-experiment
+        # check that the fit isn't merely close by accident.
+        assert row.ci_low <= true_log_hr <= row.ci_high, (
+            f"true log-HR {true_log_hr:+.4f} not bracketed by 95% CI "
+            f"[{row.ci_low:+.4f}, {row.ci_high:+.4f}]"
+        )
+
     def test_concordance_is_in_unit_interval(self):
         df = _make_two_model_corpus(seed=2)
         result = cox_first_error(df, covariates=["model"])

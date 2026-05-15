@@ -231,8 +231,6 @@ def _load_by_run(
         issue_title = run["issue_title"] or issue_id or "unknown"
         task_goal = f"[{stage}] {issue_title}"
 
-        has_output = any(r["output_text"] for r in rows)
-
         traces.append(
             Trace(
                 trace_id=f"autoswe-run-{run_id}",

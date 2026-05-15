@@ -139,14 +139,20 @@ def pelt_change_points(
         autocorrelation_adjusted: When True, run a Ljung-Box test
             on the input series first; if it rejects the white-
             noise null at ``autocorrelation_alpha``, multiply the
-            BIC penalty by 2. This is a coarse but principled
-            mitigation: the standard BIC derivation assumes i.i.d.
-            residuals, and binary error sequences from agent
-            traces are typically positively autocorrelated, which
-            inflates the effective sample size and produces
-            spurious change points. The 2× multiplier roughly
-            halves the implied n_eff. Requires ``statsmodels``.
-            Recorded in result metadata.
+            BIC penalty by 2 to compensate for autocorrelation
+            inflating the effective sample size. The 2× factor is
+            **heuristic, not theoretically derived**: the standard
+            BIC penalty assumes i.i.d. residuals, and the
+            multiplier is a coarse "halve the implied n_eff"
+            adjustment rather than a calibrated correction.
+            Treat the change-point list under this option as
+            screening output, not a hypothesis test - validate
+            any change-point that drives a downstream claim by
+            either (a) re-running on a hold-out segment, (b)
+            tuning ``penalty`` against a calibration corpus where
+            the true regime structure is known, or (c) reporting
+            results under a sweep of penalty values.
+            Requires ``statsmodels``. Recorded in result metadata.
         autocorrelation_alpha: Significance level for the
             Ljung-Box decision when ``autocorrelation_adjusted``
             is True.

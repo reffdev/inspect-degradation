@@ -3,6 +3,8 @@
 import pytest
 from conftest import make_graded_step, make_graded_trace
 
+from pydantic import ValidationError
+
 from inspect_degradation.analysis.loops import loop_chain_lengths, raw_loop_rate
 from inspect_degradation.schema import GradedStep, Validity
 
@@ -13,7 +15,7 @@ from inspect_degradation.schema import GradedStep, Validity
 
 
 def test_is_looping_true_with_pass_is_rejected():
-    with pytest.raises(Exception, match="is_looping"):
+    with pytest.raises(ValidationError, match="is_looping"):
         GradedStep(
             step_index=0,
             validity=Validity.pass_,

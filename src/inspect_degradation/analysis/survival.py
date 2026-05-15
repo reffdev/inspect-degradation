@@ -23,14 +23,14 @@ from dataclasses import dataclass, field
 
 import pandas as pd
 
-log = logging.getLogger(__name__)
-
 from inspect_degradation.analysis.mixed_effects import CoefficientRow
 from inspect_degradation.analysis.statistics import (
     NINETY_FIVE,
     ConfidenceLevel,
     Estimate,
 )
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)

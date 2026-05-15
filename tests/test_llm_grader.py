@@ -8,8 +8,6 @@ pipeline without calling any real model.
 
 from __future__ import annotations
 
-import asyncio
-import itertools
 import json
 
 import pytest
