@@ -1,5 +1,10 @@
 # inspect-degradation
 
+[![PyPI](https://img.shields.io/pypi/v/inspect-degradation)](https://pypi.org/project/inspect-degradation/)
+[![Python](https://img.shields.io/pypi/pyversions/inspect-degradation)](https://pypi.org/project/inspect-degradation/)
+[![Tests](https://github.com/reffdev/inspect-degradation/actions/workflows/test.yml/badge.svg)](https://github.com/reffdev/inspect-degradation/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Within-run degradation analysis for AI agents, built as an [Inspect AI](https://inspect.aisi.org.uk/) extension.
 
 Does the agent get worse as it works longer? Agent benchmarks measure final outcomes -- did the task succeed -- but not what happens *during* a task. An agent that makes one early mistake and flawlessly executes the wrong plan for 20 steps looks identical to one that independently fails every step. These are different failure modes, and no existing tooling distinguishes them.
